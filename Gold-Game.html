@@ -78,6 +78,19 @@
       color: black;
       z-index: 2;
     }
+	
+	.game-over-screen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 20px;
+      border-radius: 10px;
+      z-index: 3;
+    }
+	
   </style>
 </head>
 <body>
@@ -136,13 +149,13 @@
   function createGold() {
     const gold = document.createElement('div');
     gold.className = 'gold';
-    const goldSize = 10 + Math.random() * 60; // Adjusted the size range
+    const goldSize = [30, 55, 80][Math.floor(Math.random() * 3)]; // Sizes of gold (adjust as needed)
     gold.style.width = `${goldSize}px`;
     gold.style.height = `${goldSize}px`;
     gold.style.left = `${Math.random() * 974}px`; // Adjusted to fit the screen width
     gameContainer.appendChild(gold);
 
-    const fallSpeed = 1 + Math.random() * 3; // Random speed
+    const fallSpeed = 1 + Math.random() * 2; // Random speed
 
     function fall() {
       if (!isGameOver) {
@@ -156,15 +169,25 @@
         }
 
         // Check for collision with the basket
+        const basketRect = basket.getBoundingClientRect();
+        const goldRect = gold.getBoundingClientRect();
+
         if (
-          top + goldSize >= basketPositionY - basketRadius && // Same size as the basket
-          top <= basketPositionY + 100 + basketRadius && // Same size as the basket
-          gold.offsetLeft + goldSize / 2 >= basketPositionX - basketRadius && // Centered catch radius
-          gold.offsetLeft + goldSize / 2 <= basketPositionX + 100 + basketRadius // Centered catch radius
+          goldRect.bottom >= basketRect.top &&
+          goldRect.top <= basketRect.bottom &&
+          goldRect.right >= basketRect.left &&
+          goldRect.left <= basketRect.right
         ) {
           gold.remove(); // Remove gold when collected
-          const goldPoints = Math.round(1 + (goldSize / 10)); // Points based on the size of gold
-          score += goldPoints;
+          let points;
+          if (goldSize === 30) {
+            points = 3;
+          } else if (goldSize === 55) {
+            points = 6;
+          } else {
+            points = 10;
+          }
+          score += points;
           updateScore();
           catchGoldAudio.play(); // Play catch gold sound
         }
