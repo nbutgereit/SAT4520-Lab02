@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gold Collector Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: url('background.jpg') no-repeat top left; /* Replace 'background.jpg' with your background image path */
+      background-size: 1024px 768px; /* Set the background size to 1024x768 */
+      height: 768px; /* Set the height to 768px */
+    }
+
+    #game-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1024px;
+      height: 768px;
+      overflow: hidden;
+    }
+
+    #basket {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100px; /* Doubled the size of the basket */
+      height: 100px; /* Doubled the size of the basket */
+      background-image: url('basket.png'); /* Replace 'basket.png' with your basket image path */
+      background-size: contain; /* Ensure the entire image is loaded and then scale it */
+      background-repeat: no-repeat;
+      z-index: 2;
+    }
+
+    .gold, .diamond, .bomb {
+      position: absolute;
+      z-index: 1;
+    }
+
+    .gold {
+      background-image: url('gold.png'); /* Replace 'gold.png' with your gold image path */
+      background-size: cover;
+    }
+
+    .diamond {
+      background-image: url('diamond.png'); /* Replace 'diamond.png' with your diamond image path */
+      background-size: cover;
+      width: 80px; /* Doubled the size of the diamond */
+      height: 80px; /* Doubled the size of the diamond */
+    }
+
+    .bomb {
+      background-image: url('bomb.png'); /* Replace 'bomb.png' with your bomb image path */
+      background-size: cover;
+      width: 60px; /* Doubled the size of the bomb */
+      height: 60px; /* Doubled the size of the bomb */
+    }
+
+    #scoreboard {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 36px;
+	  font-weight: bold;
+      color: black;
+      z-index: 2;
+    }
+
+    #timer {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 36px;
+	  font-weight: bold;
+      color: black;
+      z-index: 2;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="basket"></div>
+  <div id="scoreboard">Score: 0</div>
+  <div id="timer">Time: 60s</div>
+</div>
+
+<audio id="catchGoldAudio" src="catch_gold.mp3"></audio> <!-- Replace 'catch_gold.mp3' with your gold catch sound path -->
+<audio id="catchBombAudio" src="catch_bomb.wav"></audio> <!-- Replace 'catch_bomb.mp3' with your bomb catch sound path -->
+<audio id="backgroundMusic" src="background_music.mp3" loop></audio> <!-- Replace 'background_music.mp3' with your background music path -->
+
+<script>
+  const gameContainer = document.getElementById('game-container');
+  const basket = document.getElementById('basket');
+  const scoreboard = document.getElementById('scoreboard');
+  const timerDisplay = document.getElementById('timer');
+  const catchGoldAudio = document.getElementById('catchGoldAudio');
+  const catchBombAudio = document.getElementById('catchBombAudio');
+  const backgroundMusic = document.getElementById('backgroundMusic');
+
+  let basketPositionX = 487; // Initial X position (centered in 1024px width)
+  let basketPositionY = 708; // Initial Y position (bottom in 768px height)
+  let basketRadius = 50; // Same size as the basket
+  let score = 0;
+  let timer = 60;
+  let isGameOver = false;
+
+  // Start background music
+  backgroundMusic.play();
+  backgroundMusic.currentTime = 0;
+
+  document.addEventListener('keydown', (event) => {
+    if (!isGameOver) {
+      if (event.key === 'ArrowLeft' && basketPositionX > 0) {
+        basketPositionX -= 15;
+      } else if (event.key === 'ArrowRight' && basketPositionX < 974) {
+        basketPositionX += 15; // Adjusted to keep the basket inside the screen width
+      } else if (event.key === 'ArrowUp' && basketPositionY > 0) {
+        basketPositionY -= 15;
+      } else if (event.key === 'ArrowDown' && basketPositionY < 718) {
+        basketPositionY += 15; // Adjusted to keep the basket inside the screen height
+      }
+
+      updateBasketPosition();
+    }
+  });
+
+  function updateBasketPosition() {
+    basket.style.left = `${basketPositionX}px`;
+    basket.style.top = `${basketPositionY}px`;
+  }
+
+  function createGold() {
+    const gold = document.createElement('div');
+    gold.className = 'gold';
+    const goldSize = 10 + Math.random() * 60; // Adjusted the size range
+    gold.style.width = `${goldSize}px`;
+    gold.style.height = `${goldSize}px`;
+    gold.style.left = `${Math.random() * 974}px`; // Adjusted to fit the screen width
+    gameContainer.appendChild(gold);
+
+    const fallSpeed = 1 + Math.random() * 3; // Random speed
+
+    function fall() {
+      if (!isGameOver) {
+        const top = gold.offsetTop + fallSpeed;
+        gold.style.top = `${top}px`;
+
+        if (top < 768) {
+          requestAnimationFrame(fall);
+        } else {
+          gold.remove(); // Remove gold when it goes beyond the screen
+        }
+
+        // Check for collision with the basket
+        if (
+          top + goldSize >= basketPositionY - basketRadius && // Same size as the basket
+          top <= basketPositionY + 100 + basketRadius && // Same size as the basket
+          gold.offsetLeft + goldSize / 2 >= basketPositionX - basketRadius && // Centered catch radius
+          gold.offsetLeft + goldSize / 2 <= basketPositionX + 100 + basketRadius // Centered catch radius
+        ) {
+          gold.remove(); // Remove gold when collected
+          const goldPoints = Math.round(1 + (goldSize / 10)); // Points based on the size of gold
+          score += goldPoints;
+          updateScore();
+          catchGoldAudio.play(); // Play catch gold sound
+        }
+      }
+    }
+
+    requestAnimationFrame(fall);
+  }
+
+  function createDiamond() {
+    // Adjusted probability of diamond spawning
+    if (Math.random() < 0.2) {
+      const diamond = document.createElement('div');
+      diamond.className = 'diamond';
+      diamond.style.left = `${Math.random() * (974 - 80)}px`; // Adjusted to fit the screen width
+      gameContainer.appendChild(diamond);
+
+      const fallSpeed = 1.5;
+
+      function fall() {
+        if (!isGameOver) {
+          const top = diamond.offsetTop + fallSpeed;
+          diamond.style.top = `${top}px`;
+
+          if (top < 768) {
+            requestAnimationFrame(fall);
+          } else {
+            diamond.remove(); // Remove diamond when it goes beyond the screen
+          }
+
+          // Check for collision with the basket
+          if (
+            top + 80 >= basketPositionY - basketRadius && // Same size as the basket
+            top <= basketPositionY + 100 + basketRadius && // Same size as the basket
+            diamond.offsetLeft + 80 / 2 >= basketPositionX - basketRadius && // Centered catch radius
+            diamond.offsetLeft + 80 / 2 <= basketPositionX + 100 + basketRadius // Centered catch radius
+          ) {
+            diamond.remove(); // Remove diamond when collected
+            score += 20; // Fixed points for collecting a diamond
+            updateScore();
+			catchGoldAudio.play();
+          }
+        }
+      }
+
+      requestAnimationFrame(fall);
+    }
+  }
+
+  function createBomb() {
+    // Halved the spawn rate of bombs
+    if (Math.random() < 0.1) {
+      const bomb = document.createElement('div');
+      bomb.className = 'bomb';
+      bomb.style.left = `${Math.random() * (974 - 60)}px`; // Adjusted to fit the screen width
+      gameContainer.appendChild(bomb);
+
+      const fallSpeed = 2.5;
+
+      function fall() {
+        if (!isGameOver) {
+          const top = bomb.offsetTop + fallSpeed;
+          bomb.style.top = `${top}px`;
+
+          if (top < 768) {
+            requestAnimationFrame(fall);
+          } else {
+            bomb.remove(); // Remove bomb when it goes beyond the screen
+          }
+
+          // Check for collision with the basket
+          if (
+            top + 60 >= basketPositionY - basketRadius && // Same size as the basket
+            top <= basketPositionY + 100 + basketRadius && // Same size as the basket
+            bomb.offsetLeft + 60 / 2 >= basketPositionX - basketRadius && // Centered catch radius
+            bomb.offsetLeft + 60 / 2 <= basketPositionX + 100 + basketRadius // Centered catch radius
+          ) {
+            bomb.remove(); // Remove bomb when caught
+            score -= 10; // Deduct points for catching a bomb
+            updateScore();
+            catchBombAudio.play(); // Play catch bomb sound
+          }
+        }
+      }
+
+      requestAnimationFrame(fall);
+    }
+  }
+
+  function updateScore() {
+    scoreboard.textContent = `Score: ${score}`;
+
+    if (score < 0) {
+      endGame();
+    }
+  }
+
+  function updateTimer() {
+    timerDisplay.textContent = `Time: ${timer}s`;
+
+    if (timer === 0) {
+      if (score > 0) {
+        congratulatePlayer();
+      } else {
+        endGame();
+      }
+    } else {
+      timer--;
+      setTimeout(updateTimer, 1000);
+    }
+  }
+
+  function congratulatePlayer() {
+    isGameOver = true;
+
+    const congratsScreen = document.createElement('div');
+    congratsScreen.className = 'game-over-screen';
+    congratsScreen.innerHTML = `<h2>Congratulations! Your Score: ${score}</h2><button onclick="retryGame()">Retry</button>`;
+    gameContainer.appendChild(congratsScreen);
+  }
+
+  function endGame() {
+    isGameOver = true;
+
+    const gameOverScreen = document.createElement('div');
+    gameOverScreen.className = 'game-over-screen';
+    gameOverScreen.innerHTML = `<h2>Game Over! Your Score: ${score}</h2><button onclick="retryGame()">Retry</button>`;
+    gameContainer.appendChild(gameOverScreen);
+  }
+
+  function retryGame() {
+    document.location.reload(true);
+  }
+
+  function gameLoop() {
+    if (!isGameOver) {
+	  backgroundMusic.play();
+      createGold();
+      createDiamond();
+      createBomb();
+      setTimeout(gameLoop, 1000); // Adjust the timeout as needed
+    }
+  }
+
+  // Start the game loop and timer
+  gameLoop();
+  updateTimer();
+</script>
+</body>
+</html>
